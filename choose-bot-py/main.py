@@ -792,7 +792,7 @@ async def arena(message):
 
 async def season_change(message):
     guild = message.guild
-    with open('bank_test.json', 'r') as f:
+    with open('bank.json', 'r') as f:
         bank = json.load(f)
     for user in bank[str(guild.id)]:
         user['total_wallet'] += user['wallet']
@@ -801,19 +801,19 @@ async def season_change(message):
         user['win_count'] = 0
         user['8D_count'] = 0
 
-    with open('bank_test.json', 'w') as f:
+    with open('bank.json', 'w') as f:
         json.dump(bank, f, indent=4)
         return
     
 async def asd(message):
     guild = message.guild
-    with open('bank_test.json', 'r') as f:
+    with open('bank.json', 'r') as f:
         bank = json.load(f)
     for user in bank[str(guild.id)]:
         user['total_arena_playcount']+=user['arena_playcount']
         user['total_win_count']+=user['win_count']
 
-    with open('bank_test.json', 'w') as f:
+    with open('bank.json', 'w') as f:
         json.dump(bank, f, indent=4)
         return
 
