@@ -128,4 +128,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-.bank.json
+choose-bot-py/bank.json
