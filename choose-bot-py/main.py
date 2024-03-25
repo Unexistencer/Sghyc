@@ -18,7 +18,6 @@ import asyncio
 import bank
 import time
 # from num2chinese import num2chinese
-# import music
 import json
 import sys
 import logging
@@ -26,8 +25,8 @@ from logging.handlers import RotatingFileHandler
 import re
 import online_check
 
-config_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "config.json")
-announce_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "announce_channel.json")
+config_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "data/config.json")
+announce_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "data/announce_channel.json")
 
 class joinVC:
     def __init__(self, userID, befChannel, aftChannel, diffTime):
@@ -102,12 +101,11 @@ command_list = ['.choose A B C ...',
         '.ran',
         '.rran',
         '.sran']
-counter = 0
+# counter = 0
 token = config.get('token_main') if config.get('safemode') == 0 else config.get('token_sub')
 
 joinVC_list = []
 
-# os.chdir('/home/lab-rat/Documents/bot')
 os.chdir(f"{os.path.realpath(os.path.dirname(__file__))}")
 
 time.sleep(10)
@@ -122,24 +120,21 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    global counter
+    # global counter
 
     words = message.content.split()
-    if isinstance(words, list):
-        command = words[0]
-        command = command[1:]
-    else:
-        command = words[1:]
+    command = words[0]
+    command = command[1:]
 
-    if message.content == ('.counter on'):
-        counter = 1
-        embed = discord.Embed(title='Counter mode has been enabled')
-        await message.channel.send(embed=embed)
+    # if message.content == ('.counter on'):
+    #     counter = 1
+    #     embed = discord.Embed(title='Counter mode has been enabled')
+    #     await message.channel.send(embed=embed)
 
-    if message.content == ('.counter off'):
-        counter = 0
-        embed = discord.Embed(title='Counter mode has been disabled')
-        await message.channel.send(embed=embed)
+    # if message.content == ('.counter off'):
+    #     counter = 0
+    #     embed = discord.Embed(title='Counter mode has been disabled')
+    #     await message.channel.send(embed=embed)
     
     if message.content == ('.announce'):
         await log(message, command)
@@ -174,13 +169,13 @@ async def on_message(message):
         logger.info('Success')
         return
 
-    if counter == 1 and '屌你老母' in str(message.content):
-        await noplz(message)
-        return
+    # if counter == 1 and '屌你老母' in str(message.content):
+    #     await noplz(message)
+    #     return
 
-    if counter == 1 and '抵' in str(message.content):
-        await lmao(message)
-        return
+    # if counter == 1 and '抵' in str(message.content):
+    #     await lmao(message)
+    #     return
 
     if message.content == ('.info'):
         await log(message, command)
@@ -196,7 +191,6 @@ async def on_message(message):
     
     if message.content == ('.ranking'):
         await log(message, command)
-        # await bank.ranking_check(message)
         await ranking(message)
         logger.info('Success')
         return
@@ -362,7 +356,7 @@ async def on_voice_state_update(member, before, after):
                                 return False
                             announce_channel = announce[str(member.guild.id)]['channel_id']
                             channel = bot.get_channel(announce_channel)
-                            await channel.send(member.name+"入"+ before.channel.name+"偷聽完又走")
+                            await channel.send(f"<@{member.id}> " + "入 "+ f"<#{before.channel.id}> "+"偷聽完又走")
                     for i, o in enumerate(joinVC_list):
                         if o.userID == member.id:
                             del joinVC_list[i]

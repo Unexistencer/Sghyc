@@ -1,12 +1,20 @@
 import os
 import json
-import discord
 
-announce_channel_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "announce_channel.json")
+announce_channel_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "data/announce_channel.json")
 
 async def get_channel_data():
-    with open(announce_channel_path, 'r') as f:
-        announce = json.load(f)
+    try:
+        with open(announce_channel_path, 'r') as f:
+            announce = json.load(f)
+    except FileNotFoundError:
+        # create a new json file
+        announce = {}
+        with open(announce_channel_path, 'w') as f:
+            json.dump(announce, f, indent=4)
+    except json.JSONDecodeError:
+        print("Error: JSON decode failed. File may be corrupted.")
+
     return announce
 
 async def set_announce_channel(guild, channel):

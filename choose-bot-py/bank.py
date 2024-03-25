@@ -2,7 +2,7 @@ import os
 import json
 import discord
 
-bank_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "bank.json")
+bank_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "data/bank.json")
 
 # get bank data
 async def get_bank_data():
