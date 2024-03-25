@@ -4,8 +4,8 @@
 # 230315 開始新增music
 # 230502 bank.json格式修改, 新增查看Ranking功能
 # 230612 新增logging
-#
-#
+# 240215 logging -> logger
+# 240319 新增偷聽checker
 #
 # ============================================================
 
@@ -15,7 +15,6 @@ import os
 import discord
 import random
 import asyncio
-# import datetime
 import bank
 import time
 # from num2chinese import num2chinese
@@ -23,25 +22,77 @@ import time
 import json
 import sys
 import logging
+from logging.handlers import RotatingFileHandler
+import re
+import online_check
 
-# from numpy import true_divide
-# from server import keep_alive
+config_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "config.json")
+announce_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "announce_channel.json")
 
+class joinVC:
+    def __init__(self, userID, befChannel, aftChannel, diffTime):
+        self.userID = userID
+        self.befchannel = befChannel
+        self.aftChannel = aftChannel
+        self.diffTime = diffTime
 
-if not os.path.isfile(f"{os.path.realpath(os.path.dirname(__file__))}/config.json"):
+if not os.path.isfile(config_path):
     sys.exit("'config.json' not found! Please add it and try again.")
 else:
-    with open(f"{os.path.realpath(os.path.dirname(__file__))}/config.json") as file:
+    with open(config_path) as file:
         config = json.load(file)
-        logging.basicConfig(filename='choosebot.log',
-                            format='%(asctime)s:\t%(levelname)s:\t%(message)s',
-                            level=logging.INFO)
+
+if not os.path.isfile(announce_path):
+    sys.exit("'announce_channel.json' not found! Please add it and try again.")
+else:
+    with open(announce_path) as file:
+        announce = json.load(file)
+
+def get_next_log_filename(log_dir):
+    # get all files starts with 'log-'
+    log_files = [f for f in os.listdir(log_dir) if f.startswith('log-')]
+    
+    # if none, create 'log-1.log'
+    if not log_files:
+        return os.path.join(log_dir, 'log-1.log')
+    
+    # if exist, find the latest one (which is largest num)
+    latest_log_num = max([int(re.search(r'log-(\d+)\.log', f).group(1)) for f in log_files])
+    latest_log_file = os.path.join(log_dir, f"log-{latest_log_num}.log")
+
+    # check file size, create a new one if the latest file's size is over 1mb
+    if os.path.getsize(latest_log_file) >= 1 * 1024 * 1024:
+        return os.path.join(log_dir, f"log-{latest_log_num + 1}.log")
+    else:
+        return latest_log_file
+
+
+def setup_logging():
+    # set log file
+    log_dir = '.'
+    log_filename = get_next_log_filename(log_dir)
+    
+    # create logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    
+    # create RotatingFileHandler, with the size limit of 1mb
+    handler = logging.FileHandler(log_filename)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    
+    # add handler to logger
+    logger.addHandler(handler)
+    
+    return logger
+
+if __name__ == "__main__":
+    logger = setup_logging()
 
 intents = discord.Intents.default()
 intents.members = True
 bot = commands.Bot(command_prefix='.', case_insensitive=True, intents=intents)
 
-# bot_ID = 991200202855813262
 command_list = ['.choose A B C ...',
         '.cock',
         '.arena',
@@ -52,10 +103,9 @@ command_list = ['.choose A B C ...',
         '.rran',
         '.sran']
 counter = 0
-chooseCount = 0
-token = config['token_main']
-if config['safemode'] == 1:
-    token = config['token_sub']
+token = config.get('token_main') if config.get('safemode') == 0 else config.get('token_sub')
+
+joinVC_list = []
 
 # os.chdir('/home/lab-rat/Documents/bot')
 os.chdir(f"{os.path.realpath(os.path.dirname(__file__))}")
@@ -64,9 +114,8 @@ time.sleep(10)
 
 @bot.event
 async def on_ready():
-    logging.info('Bot started')
+    logger.info('Bot started')
     print('Project starts.')
-
 
 @bot.event
 async def on_message(message):
@@ -81,51 +130,6 @@ async def on_message(message):
         command = command[1:]
     else:
         command = words[1:]
-    
-    # match command:
-    #     case '?':
-    #         await what(message)
-    #         return sucess()
-    #     case 'choose':
-    #         await choose(message)
-    #         return sucess()
-    #     case 'cock':
-    #         await cock(message)
-    #         return sucess()
-    #     case 'arena':
-    #         await arena(message)
-    #         return sucess()
-    #     case 'bank':
-    #         await bank.balance(message)
-    #         return sucess()
-    #     case 'ranking':
-    #         await bank.ranking_check(message)
-    #         return sucess()
-    #     case 'get':
-    #         if message.author.id in config['owners']:
-    #             await give(message)
-    #             return sucess()
-    #         else:
-    #             embed = discord.Embed(title='？')
-    #             await message.channel.send(embed=embed)
-    #             return failed()
-    #     case 'lose':
-    #         if message.author.id in config['owners']:
-    #             await take(message)
-    #             return sucess()
-    #         else:
-    #             embed = discord.Embed(title='？')
-    #             await message.channel.send(embed=embed)
-    #             return failed()
-    #     case 'set':
-    #         await log(message, 'Set coin')
-    #         if message.author.id in config['owners']:
-    #             await set(message)
-    #             return sucess()
-    #         else:
-    #             embed = discord.Embed(title='？')
-    #             await message.channel.send(embed=embed)
-    #             return failed()
 
     if message.content == ('.counter on'):
         counter = 1
@@ -136,6 +140,17 @@ async def on_message(message):
         counter = 0
         embed = discord.Embed(title='Counter mode has been disabled')
         await message.channel.send(embed=embed)
+    
+    if message.content == ('.announce'):
+        await log(message, command)
+        set_check = await online_check.set_announce_channel(message.guild, message.channel)
+        if (set_check):
+            embed = discord.Embed(title='Set as announcement channel.')
+            await message.channel.send(embed=embed)
+        else:
+            embed = discord.Embed(title='Announcement channel setup error.')
+            await message.channel.send(embed=embed)
+        return
     
     if message.content == ('.?'):
         await log(message, command)
@@ -150,13 +165,13 @@ async def on_message(message):
     if message.content == ('.cock'):
         await log(message, command)
         await cock(message)
-        logging.info('Success')
+        logger.info('Success')
         return
 
     if message.content == '.arena':
         await log(message, command)
         await arena(message)
-        logging.info('Success')
+        logger.info('Success')
         return
 
     if counter == 1 and '屌你老母' in str(message.content):
@@ -170,27 +185,27 @@ async def on_message(message):
     if message.content == ('.info'):
         await log(message, command)
         await choose_info(message)
-        logging.info('Success')
+        logger.info('Success')
         return
     
     if message.content.startswith('.dice'):
         await log(message, command)
         await dice(message)
-        logging.info('Success')
+        logger.info('Success')
         return
     
     if message.content == ('.ranking'):
         await log(message, command)
         # await bank.ranking_check(message)
         await ranking(message)
-        logging.info('Success')
+        logger.info('Success')
         return
 
     if message.content.startswith('.move '):
         await log(message, command)
         if message.author.id in config['owners']:
             await move(message)
-            logging.info('Success')
+            logger.info('Success')
         else:
             embed = discord.Embed(title='？')
             await message.channel.send(embed=embed)
@@ -200,7 +215,7 @@ async def on_message(message):
         await log(message, command)
         if message.author.id in config['owners']:
             await give(message)
-            logging.info('Success')
+            logger.info('Success')
         else:
             embed = discord.Embed(title='？')
             await message.channel.send(embed=embed)
@@ -210,7 +225,7 @@ async def on_message(message):
         await log(message, command)
         if message.author.id in config['owners']:
             await take(message)
-            logging.info('Success')
+            logger.info('Success')
         else:
             embed = discord.Embed(title='？')
             await message.channel.send(embed=embed)
@@ -257,22 +272,12 @@ async def on_message(message):
                     break
             await sran(filtered)
         return
-    
-    # if message.content == ('.asd'):
-    #     await log(message, command)
-    #     if message.author.id in config['owners']:
-    #         await asd(message)
-    #         logging.info('Success')
-    #     else:
-    #         embed = discord.Embed(title='？')
-    #         await message.channel.send(embed=embed)
-    #     return
 
     if message.content.startswith('.set '):
         await log(message, command)
         if message.author.id in config['owners']:
             await set(message)
-            logging.info('Success')
+            logger.info('Success')
         else:
             embed = discord.Embed(title='？')
             await message.channel.send(embed=embed)
@@ -284,27 +289,18 @@ async def on_message(message):
             await season_change(message)
             embed = discord.Embed(title='Season Changed')
             await message.channel.send(embed=embed)
-            logging.info('Success')
+            logger.info('Success')
         else:
             embed = discord.Embed(title='？')
             await message.channel.send(embed=embed)
         return
-    
-    # if message.content.startswith('.play '):
-    #     url = message.content.replace('.play ','')
-    #     print(url)
-    #     inside = await music.join(message)
-    #     print(inside)
-    #     if inside == -1:
-    #         return
-    #     await music.play(message, url)
     
     if message.content == ('.safemode'):
         if message.author.id in config['owners']:
             embed = discord.Embed(title='Enabling safe mode...')
             await message.channel.send(embed=embed)
             config['safemode'] = 1
-            with open(f"{os.path.realpath(os.path.dirname(__file__))}/config.json", 'w') as f:
+            with open(config_path, 'w') as f:
                 json.dump(config, f, indent=4)
             await restart_bot()
         else:
@@ -318,7 +314,7 @@ async def on_message(message):
             embed = discord.Embed(title='Disabling safe mode...')
             await message.channel.send(embed=embed)
             config['safemode'] = 0
-            with open(f"{os.path.realpath(os.path.dirname(__file__))}/config.json", 'w') as f:
+            with open(config_path, 'w') as f:
                 json.dump(config, f, indent=4)
             await restart_bot()
         else:
@@ -338,6 +334,43 @@ async def on_message(message):
         return
 
 
+@bot.event
+async def on_voice_state_update(member, before, after):
+    if before.channel == after.channel:
+        return False
+    joinVC_list.append(joinVC(member.id, before.channel, after.channel, time.time()))
+    
+    for i, o in enumerate(joinVC_list):
+        if o.userID == member.id:
+            elapsed_time = time.time() - o.diffTime
+            if before.channel and after.channel:
+                if elapsed_time > 10 or o.aftChannel != before.channel:
+                    del joinVC_list[i]
+                else:
+                    if str(member.guild.id) in announce:
+                        announce_channel = announce[str(member.guild.id)]['channel_id']
+                        channel = bot.get_channel(announce_channel)
+                        await channel.send(member.name+"入"+ before.channel.name+"偷聽完又走")
+                    for i, o in enumerate(joinVC_list):
+                        if o.aftChannel != after.channel:
+                            del joinVC_list[i]
+            elif not after.channel:
+                if o.aftChannel:
+                    if elapsed_time < 10:
+                        if str(member.guild.id) in announce:
+                            if before.channel == after.channel:
+                                return False
+                            announce_channel = announce[str(member.guild.id)]['channel_id']
+                            channel = bot.get_channel(announce_channel)
+                            await channel.send(member.name+"入"+ before.channel.name+"偷聽完又走")
+                    for i, o in enumerate(joinVC_list):
+                        if o.userID == member.id:
+                            del joinVC_list[i]
+            else:
+                return
+    
+    return
+    
 def plus(num):
     return (num + 1)
 
@@ -380,7 +413,7 @@ async def choose(message):
         num = random.randint(0, len(arr) - 1)
         result = str(arr[num])
         if len(result) > 1 and random.randint(1, 100) == 100:
-            logging.info("Critical Attack!!")
+            logger.info("Critical Attack!!")
             word = arr[random.randint(0, len(arr) - 1)]
             prefix = str(word)[0:int(len(str(word))/2)]
             arr.remove(word)
@@ -400,7 +433,7 @@ async def choose(message):
                                   description='嗱幫你揀咗喇，唔好反口呀。',
                                   color=discord.Color.green())
             await message.channel.send(embed=embed)
-        logging.info('Success')
+        logger.info('Success')
         return
 
 
@@ -805,19 +838,6 @@ async def season_change(message):
         json.dump(bank, f, indent=4)
         return
     
-async def asd(message):
-    guild = message.guild
-    with open('bank.json', 'r') as f:
-        bank = json.load(f)
-    for user in bank[str(guild.id)]:
-        user['total_arena_playcount']+=user['arena_playcount']
-        user['total_win_count']+=user['win_count']
-
-    with open('bank.json', 'w') as f:
-        json.dump(bank, f, indent=4)
-        return
-
-
 @bot.command()
 @commands.guild_only()
 async def move(message):
@@ -930,14 +950,14 @@ async def set(message):
     await message.channel.send(embed=embed)
 
 async def log(message, fc):
-    logging.info(fc+ " by " + str(message.author) + " from [" + message.guild.name + "#" + str(message.guild.id) + "]")
+    logger.info(fc+ " by " + str(message.author) + " from [" + message.guild.name + "#" + str(message.guild.id) + "]")
     return
 
 async def sucess():
-    logging.info('Success')
+    logger.info('Success')
     return
 async def failed():
-    logging.info('Failed')
+    logger.info('Failed')
     return
 
 def restart_bot():
@@ -950,4 +970,3 @@ while result is None:
         result = bot.run(token)
     except:
         pass
-

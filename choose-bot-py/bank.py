@@ -2,7 +2,14 @@ import os
 import json
 import discord
 
-os.chdir('/home/lab-rat/Documents/bot')
+bank_path = os.path.join(os.path.realpath(os.path.dirname(__file__)), "bank.json")
+
+# get bank data
+async def get_bank_data():
+    with open(bank_path, 'r') as f:
+        bank = json.load(f)
+    return bank
+
 
 # info
 
@@ -100,7 +107,6 @@ async def create_account(guild, user_id):
             for search in bank[str(guild.id)]:
                 if search['ID'] == user_id.id:
                     return False
-            print('hi')
             bank[str(guild.id)].append({
                 "ID": user_id.id,
                 "wallet": 0,
@@ -118,7 +124,6 @@ async def create_account(guild, user_id):
             for search in bank[str(guild.id)]:
                 if search['ID'] == user_id:
                     return False
-            print('hi')
             bank[str(guild.id)].append({
                 "ID": user_id,
                 "wallet": 0,
@@ -131,13 +136,13 @@ async def create_account(guild, user_id):
                 "total_8D_count": 0
                 })
 
-    with open('bank_test.json', 'w') as f:
+    with open(bank_path, 'w') as f:
         json.dump(bank, f, indent=4)
         return
 
 async def ranking_check(message):
     guild = message.guild
-    with open('bank_test.json', 'r') as f:
+    with open(bank_path, 'r') as f:
         bank = json.load(f)
     
     ranking = []
@@ -184,7 +189,7 @@ async def ranking_check(message):
 
 async def ranking(message, string, label):
     guild = message.guild
-    with open('bank_test.json', 'r') as f:
+    with open(bank_path, 'r') as f:
         bank = json.load(f)
     
     
@@ -294,16 +299,9 @@ async def entry(guild, user_id, string):
                     break
    
     
-    with open('bank_test.json', 'w') as f:
+    with open(bank_path, 'w') as f:
         json.dump(bank, f, indent=4)
         return    
-
-
-
-async def get_bank_data():
-    with open('bank_test.json', 'r') as f:
-        bank = json.load(f)
-    return bank
 
 async def earn(guild, user_id, amount):
     await create_account(guild, user_id)
@@ -323,7 +321,7 @@ async def earn(guild, user_id, amount):
                 break
    
     
-    with open('bank_test.json', 'w') as f:
+    with open(bank_path, 'w') as f:
         json.dump(bank, f, indent=4)
         return
 
@@ -348,7 +346,7 @@ async def pay(guild, user_id, amount):
                     user['wallet'] = 0
                 break
     
-    with open('bank_test.json', 'w') as f:
+    with open(bank_path, 'w') as f:
         json.dump(bank, f, indent=4)
         return
 
@@ -367,7 +365,7 @@ async def set(guild, user_id, amount):
                 user['total_wallet'] = amount
                 break
     
-    with open('bank_test.json', 'w') as f:
+    with open(bank_path, 'w') as f:
         json.dump(bank, f, indent=4)
         return
 
